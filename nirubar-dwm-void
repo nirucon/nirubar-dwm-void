@@ -1,9 +1,7 @@
 #!/bin/sh
 
-# Light Status bar for Void Linux with dwm using xsetroot
-
-# Dependencies:
-#   sudo xbps-install -S xsetroot jq
+# Status bar for Void Linux with dwm using xsetroot by Nicklas Rudolfsson
+# https://github.com/nirucon
 
 # Function to check if Font Awesome is installed
 check_font_awesome() {
@@ -13,22 +11,186 @@ check_font_awesome() {
 # Set identifier based on font availability
 IDENTIFIER=$(check_font_awesome && echo "fontawesome" || echo "text")
 
+# Define separator characters
+SPRL=" [ "
+SPRR=" ] "
+
+# Check if the device is a laptop
+IS_LAPTOP=$(ls /sys/class/power_supply | grep -q 'BAT' && echo true || echo false)
+
 # Define functions for each module
+
+module_alsa() {
+    STATUS=$(amixer sget Master | awk -F '[][]' 'END{ print $4 }')
+    VOL=$(amixer get Master | awk -F '[][]' 'END{ print $2 }' | sed 's/%//')
+    case $STATUS in
+        off) ICON="";;
+        *) case $VOL in
+               [0-9]|[1-3][0-9]) ICON=" $VOL%";;
+               [4-6][0-9]) ICON=" $VOL%";;
+               *) ICON=" $VOL%";;
+           esac;;
+    esac
+    echo "$ICON"
+}
+
+module_backlight() {
+    printf "bl: %.0f%%" "$(xbacklight)"
+}
+
+module_battery() {
+    for battery in /sys/class/power_supply/BAT*; do
+        [ -d "$battery" ] || continue
+        CHARGE=$(cat "$battery/capacity")
+        STATUS=$(cat "$battery/status")
+        ICON=$(case $CHARGE in
+                   [8-9][0-9]|100) echo "";;
+                   [6-7][0-9]) echo "";;
+                   [4-5][0-9]) echo "";;
+                   [2-3][0-9]) echo "";;
+                   *) echo "";;
+               esac)
+        [ "$STATUS" = "Charging" ] && ICON="$ICON "
+        printf "%s %s%% " "$ICON" "$CHARGE"
+    done
+}
+
+module_cmus() {
+    CMUSDATA=$(cmus-remote -Q 2>/dev/null)
+    if [ -z "$CMUSDATA" ]; then
+        echo ""
+        return
+    fi
+    STATUS=$(echo "$CMUSDATA" | grep -w 'status' | awk '{print $2}')
+    ICON=$(case $STATUS in
+               playing) echo "";;
+               *) echo "";;
+           esac)
+    ARTIST=$(echo "$CMUSDATA" | grep -w 'tag artist' | sed 's/tag artist //')
+    TRACK=$(echo "$CMUSDATA" | grep -w 'tag title' | sed 's/tag title //')
+    printf "%s %s - %s" "$ICON" "$ARTIST" "$TRACK"
+}
 
 module_date() {
     date "+%Y-%m-%d %H:%M"
 }
 
+module_loadavg() {
+    LOAD_AVG=$(cut -d " " -f 1-3 /proc/loadavg)
+    printf " %s" "$LOAD_AVG"
+}
+
+module_networkmanager() {
+    CONNAME=$(nmcli -t -f active,ssid dev wifi | grep '^yes' | cut -d: -f2)
+    [ -z "$CONNAME" ] && CONNAME=$(nmcli -t -f active,device,type,connection dev status | grep '^yes:wired' | cut -d: -f4)
+    PUBLIC_IP=$(curl -s https://ipinfo.io/ip)
+    printf " %s %s" "$CONNAME" "$PUBLIC_IP"
+}
+
+module_pulse() {
+    if ! command -v pamixer >/dev/null 2>&1; then
+        echo "pamixer not found"
+        return
+    fi
+    VOL=$(pamixer --get-volume)
+    MUTE=$(pamixer --get-mute)
+    ICON=$(case $MUTE in
+               true) echo "";;
+               *) case $VOL in
+                      [0-9]|[1-3][0-9]) echo " $VOL%";;
+                      [4-6][0-9]) echo " $VOL%";;
+                      *) echo " $VOL%";;
+                  esac;;
+           esac)
+    echo "$ICON"
+}
+
 module_resources() {
     free_output=$(free -h | awk '/^Mem:/ {print $3 "/" $2}')
-    disk_output=$(df -h / | awk 'END{print $3 "/" $2}')
+    disk_output=$(df -h /home | awk 'END{print $3 "/" $2}')
     printf " %s  %s" "$free_output" "$disk_output"
+}
+
+module_spotify() {
+    ARTIST=$(playerctl metadata artist 2>/dev/null)
+    TRACK=$(playerctl metadata title 2>/dev/null)
+    STATUS=$(playerctl status 2>/dev/null)
+    if [ -z "$ARTIST" ] || [ -z "$TRACK" ]; then
+        echo ""
+        return
+    fi
+    ICON=$(case $STATUS in
+               Playing) echo "";;
+               *) echo "";;
+           esac)
+    printf "%s %s - %s" "$ICON" "$ARTIST" "$TRACK"
+}
+
+module_updates() {
+    UPDATE_INTERVAL=7200  # 2 hours
+    UPDATE_TIMESTAMP_FILE="/tmp/updates_timestamp"
+    CURRENT_TIME=$(date +%s)
+    LAST_UPDATE_TIME=$(cat "$UPDATE_TIMESTAMP_FILE" 2>/dev/null || echo 0)
+
+    if [ $(($CURRENT_TIME - $LAST_UPDATE_TIME)) -ge $UPDATE_INTERVAL ]; then
+        # Use xbps-install -un to check for updates in Void Linux
+        XBPS=$(xbps-install -un | wc -l)
+        UPDATE_LABEL="Updates: $XBPS"
+        echo "$CURRENT_TIME" > "$UPDATE_TIMESTAMP_FILE"
+        echo "$UPDATE_LABEL" > "${UPDATE_TIMESTAMP_FILE}.output"
+    else
+        UPDATE_LABEL=$(cat "${UPDATE_TIMESTAMP_FILE}.output")
+    fi
+    printf "%s" "$UPDATE_LABEL"
+}
+
+module_weather() {
+    # Default to Celsius, comment out the following line to use Fahrenheit instead
+    UNIT="metric"
+    # UNIT="imperial" # Uncomment this line to use Fahrenheit
+
+    API_KEY="your_openweathermap_api_key"
+    CITY_ID="your_city_id"
+    WEATHER_URL="http://api.openweathermap.org/data/2.5/weather?id=${CITY_ID}&units=${UNIT}&appid=${API_KEY}"
+
+    WEATHER_DATA=$(curl -s "$WEATHER_URL")
+    TEMP=$(echo "$WEATHER_DATA" | jq ".main.temp" | xargs printf "%.0f")
+    ICON_CODE=$(echo "$WEATHER_DATA" | jq -r ".weather[0].icon")
+
+    ICON=$(case $ICON_CODE in
+               01d) echo "";; # clear sky day
+               01n) echo "";; # clear sky night
+               02d) echo "";; # few clouds day
+               02n) echo "";; # few clouds night
+               03*) echo "";; # scattered clouds
+               04*) echo "";; # broken clouds
+               09*) echo "🌧";; # shower rain
+               10d) echo "";; # rain day
+               10n) echo "";; # rain night
+               11*) echo "⛈";; # thunderstorm
+               13*) echo "🌨";; # snow
+               50*) echo "🌫";; # mist
+               *) echo "";; # default
+           esac)
+
+    printf "%s %s°C" "$ICON" "$TEMP"
+    # To display temperature in Fahrenheit, use the following line instead:
+    # printf "%s %s°F" "$ICON" "$TEMP"
 }
 
 # Main loop
 while true; do
     STATUS_OUTPUT=""
-    STATUS_OUTPUT+="| $(module_resources)"
+    STATUS_OUTPUT+="| $(module_alsa)"
+    #STATUS_OUTPUT+=" | $(module_backlight)" # Uncomment to enable backlight module
+    $IS_LAPTOP && STATUS_OUTPUT+=" | $(module_battery)"
+    ps -C cmus > /dev/null && STATUS_OUTPUT+=" | $(module_cmus)"
+    ps -C spotify > /dev/null && STATUS_OUTPUT+=" | $(module_spotify)"
+    STATUS_OUTPUT+=" | $(module_resources)"
+    STATUS_OUTPUT+=" | $(module_updates)"
+    #STATUS_OUTPUT+=" | $(module_loadavg)" # Uncomment to enable load average module
+    #STATUS_OUTPUT+=" | $(module_networkmanager)" # Uncomment to enable network manager module
+    #STATUS_OUTPUT+=" | $(module_weather)" # Uncomment to enable weather module
     STATUS_OUTPUT+=" | $(module_date)"
 
     xsetroot -name "$STATUS_OUTPUT"
