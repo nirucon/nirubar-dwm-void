@@ -1,7 +1,6 @@
 #!/bin/sh
 
-# Simple script to display date and time with xsetroot by Nicklas Rudolfsson
-# https://github.com/nirucon
+# Simple script to display system information with xsetroot by Nicklas Rudolfsson
 
 # Function to check if Font Awesome is installed
 check_font_awesome() {
@@ -90,5 +89,31 @@ get_wifi_status() {
             fi
         fi
     else
-       
+        echo ""
+    fi
+}
 
+# Function to update the status bar
+update_status() {
+    RAM_USAGE=$(get_ram_usage)
+    DISK_USAGE=$(get_disk_usage)
+    DATE_TIME=$(get_datetime)
+    WIFI_STATUS=$(get_wifi_status)
+
+    STATUS_OUTPUT=""
+
+    if [ "$IS_LAPTOP" = true ]; then
+        BATTERY_STATUS=$(get_battery_status)
+        STATUS_OUTPUT="$BATTERY_STATUS | $RAM_USAGE | $DISK_USAGE | $WIFI_STATUS | $DATE_TIME"
+    else
+        STATUS_OUTPUT="$RAM_USAGE | $DISK_USAGE | $WIFI_STATUS | $DATE_TIME"
+    fi
+
+    xsetroot -name "$STATUS_OUTPUT"
+}
+
+# Main loop to update the status bar every minute
+while true; do
+    update_status
+    sleep 60
+done
