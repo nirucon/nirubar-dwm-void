@@ -14,7 +14,7 @@ IDENTIFIER=$(check_font_awesome && echo "fontawesome" || echo "text")
 IS_LAPTOP=$(ls /sys/class/power_supply | grep -q 'BAT' && echo true || echo false)
 
 # Check if WiFi card is available
-HAS_WIFI=$(nmcli device status | grep -q wifi && echo true || echo false)
+HAS_WIFI=$(command -v nmcli >/dev/null 2>&1 && nmcli device status | grep -q wifi && echo true || echo false)
 
 # Function to get RAM usage
 get_ram_usage() {
@@ -60,14 +60,14 @@ get_battery_status() {
                            *) echo "";;
                        esac)
                 [ "$STATUS" = "Charging" ] && ICON="$ICON "
-                BATTERY_STATUS+="$ICON $CHARGE% "
+                BATTERY_STATUS="$BATTERY_STATUS$ICON $CHARGE% "
             else
                 if [ "$STATUS" = "Charging" ]; then
                     ICON="bat: $CHARGE% (charging)"
                 else
                     ICON="bat: $CHARGE%"
                 fi
-                BATTERY_STATUS+="$BAT_NAME: $ICON "
+                BATTERY_STATUS="$BATTERY_STATUS$BAT_NAME: $ICON "
             fi
         else
             echo "No battery directory found at $battery" >&2
