@@ -2,6 +2,10 @@
 
 # Simple script to display date and time with xsetroot
 
+#!/bin/sh
+
+# Simple script to display system information with xsetroot
+
 # Function to check if Font Awesome is installed
 check_font_awesome() {
     fc-list | grep -q -i "Font Awesome"
@@ -9,6 +13,12 @@ check_font_awesome() {
 
 # Set identifier based on font availability
 IDENTIFIER=$(check_font_awesome && echo "fontawesome" || echo "text")
+
+# Check if the device is a laptop
+IS_LAPTOP=$(ls /sys/class/power_supply | grep -q 'BAT' && echo true || echo false)
+
+# Check if WiFi card is available
+HAS_WIFI=$(nmcli device status | grep -q wifi && echo true || echo false)
 
 # Function to get RAM usage
 get_ram_usage() {
@@ -35,12 +45,69 @@ get_datetime() {
     date "+%Y-%m-%d %H:%M"
 }
 
+# Function to get battery status
+get_battery_status() {
+    BATTERY_STATUS=""
+    for battery in /sys/class/power_supply/BAT*; do
+        [ -d "$battery" ] || continue
+        CHARGE=$(cat "$battery/capacity")
+        STATUS=$(cat "$battery/status")
+        if [ "$IDENTIFIER" = "fontawesome" ]; then
+            ICON=$(case $CHARGE in
+                       [8-9][0-9]|100) echo "";;
+                       [6-7][0-9]) echo "";;
+                       [4-5][0-9]) echo "";;
+                       [2-3][0-9]) echo "";;
+                       *) echo "";;
+                   esac)
+            [ "$STATUS" = "Charging" ] && ICON="$ICON "
+        else
+            ICON="bat:"
+        fi
+        BATTERY_STATUS+="$ICON $CHARGE% "
+    done
+    echo "$BATTERY_STATUS"
+}
+
+# Function to get WiFi status
+get_wifi_status() {
+    if [ "$HAS_WIFI" = true ]; then
+        CONNAME=$(nmcli -t -f active,ssid dev wifi | grep '^yes' | cut -d: -f2)
+        if [ -z "$CONNAME" ]; then
+            if [ "$IDENTIFIER" = "fontawesome" ]; then
+                echo " Disconnected"
+            else
+                echo "wifi: disconnected"
+            fi
+        else
+            if [ "$IDENTIFIER" = "fontawesome" ]; then
+                echo " $CONNAME"
+            else
+                echo "wifi: $CONNAME"
+            fi
+        fi
+    else
+        echo ""
+    fi
+}
+
 # Function to update the status bar
 update_status() {
     RAM_USAGE=$(get_ram_usage)
     DISK_USAGE=$(get_disk_usage)
     DATE_TIME=$(get_datetime)
-    xsetroot -name "$RAM_USAGE | $DISK_USAGE | $DATE_TIME"
+    WIFI_STATUS=$(get_wifi_status)
+
+    STATUS_OUTPUT=""
+
+    if [ "$IS_LAPTOP" = true ]; then
+        BATTERY_STATUS=$(get_battery_status)
+        STATUS_OUTPUT="$BATTERY_STATUS | $RAM_USAGE | $DISK_USAGE | $WIFI_STATUS | $DATE_TIME"
+    else
+        STATUS_OUTPUT="$RAM_USAGE | $DISK_USAGE | $WIFI_STATUS | $DATE_TIME"
+    fi
+
+    xsetroot -name "$STATUS_OUTPUT"
 }
 
 # Main loop to update the status bar every minute
