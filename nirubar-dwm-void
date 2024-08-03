@@ -1,10 +1,7 @@
 #!/bin/sh
 
-# Simple script to display date and time with xsetroot
-
-#!/bin/sh
-
-# Simple script to display system information with xsetroot
+# Simple script to display date and time with xsetroot by Nicklas Rudolfsson
+# https://github.com/nirucon
 
 # Function to check if Font Awesome is installed
 check_font_awesome() {
@@ -52,6 +49,7 @@ get_battery_status() {
         [ -d "$battery" ] || continue
         CHARGE=$(cat "$battery/capacity")
         STATUS=$(cat "$battery/status")
+        BAT_NAME=$(basename "$battery")
         if [ "$IDENTIFIER" = "fontawesome" ]; then
             ICON=$(case $CHARGE in
                        [8-9][0-9]|100) echo "";;
@@ -61,10 +59,15 @@ get_battery_status() {
                        *) echo "";;
                    esac)
             [ "$STATUS" = "Charging" ] && ICON="$ICON "
+            BATTERY_STATUS+="$ICON $CHARGE% "
         else
-            ICON="bat:"
+            if [ "$STATUS" = "Charging" ]; then
+                ICON="bat: $CHARGE% (charging)"
+            else
+                ICON="bat: $CHARGE%"
+            fi
+            BATTERY_STATUS+="$BAT_NAME: $ICON "
         fi
-        BATTERY_STATUS+="$ICON $CHARGE% "
     done
     echo "$BATTERY_STATUS"
 }
@@ -87,31 +90,5 @@ get_wifi_status() {
             fi
         fi
     else
-        echo ""
-    fi
-}
+       
 
-# Function to update the status bar
-update_status() {
-    RAM_USAGE=$(get_ram_usage)
-    DISK_USAGE=$(get_disk_usage)
-    DATE_TIME=$(get_datetime)
-    WIFI_STATUS=$(get_wifi_status)
-
-    STATUS_OUTPUT=""
-
-    if [ "$IS_LAPTOP" = true ]; then
-        BATTERY_STATUS=$(get_battery_status)
-        STATUS_OUTPUT="$BATTERY_STATUS | $RAM_USAGE | $DISK_USAGE | $WIFI_STATUS | $DATE_TIME"
-    else
-        STATUS_OUTPUT="$RAM_USAGE | $DISK_USAGE | $WIFI_STATUS | $DATE_TIME"
-    fi
-
-    xsetroot -name "$STATUS_OUTPUT"
-}
-
-# Main loop to update the status bar every minute
-while true; do
-    update_status
-    sleep 60
-done
