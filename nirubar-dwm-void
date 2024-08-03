@@ -1,10 +1,9 @@
 #!/bin/sh
 
-# Status bar for void linux with dwm using xsetroot by Nicklas Rudolfsson
-# https://github.com/nirucon
+# Status bar for Void Linux with dwm using xsetroot
 
 # Dependencies:
-#   sudo xbps-install -S xsetroot alsa-utils xbacklight cmus curl playerctl font-awesome5 jq
+#   sudo xbps-install -S xsetroot alsa-utils xbacklight cmus curl playerctl font-awesome5 jq pamixer
 
 # Function to check if Font Awesome is installed
 check_font_awesome() {
@@ -110,7 +109,7 @@ module_pulse() {
 
 module_resources() {
     free_output=$(free -h | awk '/^Mem:/ {print $3 "/" $2}')
-    disk_output=$(df -h /home | awk 'END{print $3 "/" $2}')
+    disk_output=$(df -h / | awk 'END{print $3 "/" $2}')
     printf " %s  %s" "$free_output" "$disk_output"
 }
 
