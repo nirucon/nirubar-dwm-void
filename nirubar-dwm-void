@@ -142,9 +142,9 @@ update_status() {
 
     if [ "$IS_LAPTOP" = true ]; then
         BATTERY_STATUS=$(get_battery_status)
-        STATUS_OUTPUT="$BATTERY_STATUS | $RAM_USAGE | $DISK_USAGE | $WIFI_STATUS | $DATE_TIME"
+        STATUS_OUTPUT="$BATTERY_STATUS | $RAM_USAGE | $DISK_USAGE | $DATE_TIME"
     else
-        STATUS_OUTPUT="$RAM_USAGE | $DISK_USAGE | $WIFI_STATUS | $DATE_TIME"
+        STATUS_OUTPUT="$RAM_USAGE | $DISK_USAGE | $DATE_TIME"
     fi
 
     xsetroot -name "$STATUS_OUTPUT"
