@@ -2,14 +2,49 @@
 
 # Simple script to display date and time with xsetroot
 
-# Function to update the date and time
-update_datetime() {
-    DATE_TIME=$(date "+%Y-%m-%d %H:%M")
-    xsetroot -name "$DATE_TIME"
+# Function to check if Font Awesome is installed
+check_font_awesome() {
+    fc-list | grep -q -i "Font Awesome"
+}
+
+# Set identifier based on font availability
+IDENTIFIER=$(check_font_awesome && echo "fontawesome" || echo "text")
+
+# Function to get RAM usage
+get_ram_usage() {
+    RAM=$(free -h | awk '/^Mem:/ {print $3 "/" $2}')
+    if [ "$IDENTIFIER" = "fontawesome" ]; then
+        echo " $RAM"
+    else
+        echo "mem: $RAM"
+    fi
+}
+
+# Function to get disk usage for the root filesystem
+get_disk_usage() {
+    DISK=$(df -h / | awk 'END{print $3 "/" $2}')
+    if [ "$IDENTIFIER" = "fontawesome" ]; then
+        echo " $DISK"
+    else
+        echo "disk: $DISK"
+    fi
+}
+
+# Function to get the current date and time
+get_datetime() {
+    date "+%Y-%m-%d %H:%M"
+}
+
+# Function to update the status bar
+update_status() {
+    RAM_USAGE=$(get_ram_usage)
+    DISK_USAGE=$(get_disk_usage)
+    DATE_TIME=$(get_datetime)
+    xsetroot -name "$RAM_USAGE | $DISK_USAGE | $DATE_TIME"
 }
 
 # Main loop to update the status bar every minute
 while true; do
-    update_datetime
+    update_status
     sleep 60
 done
