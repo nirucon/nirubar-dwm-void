@@ -76,10 +76,43 @@ get_battery_status() {
     echo "$BATTERY_STATUS"
 }
 
-# Function to get WiFi status
+# Function to detect the network manager in use
+detect_network_manager() {
+    if command -v nmcli >/dev/null 2>&1; then
+        echo "nmcli"
+    elif command -v iw >/dev/null 2>&1; then
+        echo "iw"
+    elif command -v iwconfig >/dev/null 2>&1; then
+        echo "iwconfig"
+    elif command -v wpa_cli >/dev/null 2>&1; then
+        echo "wpa_cli"
+    else
+        echo "none"
+    fi
+}
+
+# Function to get WiFi status using the detected network manager
 get_wifi_status() {
     if [ "$HAS_WIFI" = true ]; then
-        CONNAME=$(nmcli -t -f active,ssid dev wifi | grep '^yes' | cut -d: -f2)
+        NETWORK_MANAGER=$(detect_network_manager)
+        case $NETWORK_MANAGER in
+            nmcli)
+                CONNAME=$(nmcli -t -f active,ssid dev wifi | grep '^yes' | cut -d: -f2)
+                ;;
+            iw)
+                CONNAME=$(iw dev wlan0 link | grep 'SSID' | awk '{print $2}')
+                ;;
+            iwconfig)
+                CONNAME=$(iwconfig wlan0 | grep 'ESSID' | awk -F '"' '{print $2}')
+                ;;
+            wpa_cli)
+                CONNAME=$(wpa_cli status | grep '^ssid=' | awk -F '=' '{print $2}')
+                ;;
+            none)
+                CONNAME=""
+                ;;
+        esac
+
         if [ -z "$CONNAME" ]; then
             if [ "$IDENTIFIER" = "fontawesome" ]; then
                 echo " Disconnected"
