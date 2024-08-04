@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Simple script to display system information with xsetroot
+# Simple script to display system information for Void Linux in DWM bar with xsetroot by Nicklas Rudolfsson
 
 # Function to check if Font Awesome is installed
 check_font_awesome() {
@@ -13,8 +13,39 @@ IDENTIFIER=$(check_font_awesome && echo "fontawesome" || echo "text")
 # Check if the device is a laptop
 IS_LAPTOP=$(ls /sys/class/power_supply | grep -q 'BAT' && echo true || echo false)
 
+# Function to detect the network manager in use
+detect_network_manager() {
+    if command -v nmcli >/dev/null 2>&1; then
+        echo "nmcli"
+    elif command -v iw >/dev/null 2>&1; then
+        echo "iw"
+    elif command -v iwconfig >/dev/null 2>&1; then
+        echo "iwconfig"
+    elif command -v wpa_cli >/dev/null 2>&1; then
+        echo "wpa_cli"
+    else
+        echo "none"
+    fi
+}
+
+# Function to detect WiFi availability
+detect_wifi() {
+    if command -v nmcli >/dev/null 2>&1 && nmcli device status | grep -q wifi; then
+        echo "nmcli"
+    elif command -v iw >/dev/null 2>&1 && iw dev | grep -q Interface; then
+        echo "iw"
+    elif command -v iwconfig >/dev/null 2>&1 && iwconfig 2>&1 | grep -q "ESSID"; then
+        echo "iwconfig"
+    elif command -v wpa_cli >/dev/null 2>&1 && wpa_cli status | grep -q '^ssid='; then
+        echo "wpa_cli"
+    else
+        echo "none"
+    fi
+}
+
 # Check if WiFi card is available
-HAS_WIFI=$(command -v nmcli >/dev/null 2>&1 && nmcli device status | grep -q wifi && echo true || echo false)
+WIFI_MANAGER=$(detect_wifi)
+HAS_WIFI=$( [ "$WIFI_MANAGER" != "none" ] && echo true || echo false )
 
 # Function to get RAM usage
 get_ram_usage() {
@@ -76,26 +107,10 @@ get_battery_status() {
     echo "$BATTERY_STATUS"
 }
 
-# Function to detect the network manager in use
-detect_network_manager() {
-    if command -v nmcli >/dev/null 2>&1; then
-        echo "nmcli"
-    elif command -v iw >/dev/null 2>&1; then
-        echo "iw"
-    elif command -v iwconfig >/dev/null 2>&1; then
-        echo "iwconfig"
-    elif command -v wpa_cli >/dev/null 2>&1; then
-        echo "wpa_cli"
-    else
-        echo "none"
-    fi
-}
-
 # Function to get WiFi status using the detected network manager
 get_wifi_status() {
     if [ "$HAS_WIFI" = true ]; then
-        NETWORK_MANAGER=$(detect_network_manager)
-        case $NETWORK_MANAGER in
+        case $WIFI_MANAGER in
             nmcli)
                 CONNAME=$(nmcli -t -f active,ssid dev wifi | grep '^yes' | cut -d: -f2)
                 ;;
@@ -142,9 +157,17 @@ update_status() {
 
     if [ "$IS_LAPTOP" = true ]; then
         BATTERY_STATUS=$(get_battery_status)
-        STATUS_OUTPUT="$BATTERY_STATUS | $RAM_USAGE | $DISK_USAGE | $DATE_TIME"
+        if [ "$HAS_WIFI" = true ]; then
+            STATUS_OUTPUT="$WIFI_STATUS | $BATTERY_STATUS | $RAM_USAGE | $DISK_USAGE | $DATE_TIME"
+        else
+            STATUS_OUTPUT="$BATTERY_STATUS | $RAM_USAGE | $DISK_USAGE | $DATE_TIME"
+        fi
     else
-        STATUS_OUTPUT="$RAM_USAGE | $DISK_USAGE | $DATE_TIME"
+        if [ "$HAS_WIFI" = true ]; then
+            STATUS_OUTPUT="$WIFI_STATUS | $RAM_USAGE | $DISK_USAGE | $DATE_TIME"
+        else
+            STATUS_OUTPUT="$RAM_USAGE | $DISK_USAGE | $DATE_TIME"
+        fi
     fi
 
     xsetroot -name "$STATUS_OUTPUT"
