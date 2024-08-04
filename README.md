@@ -19,7 +19,7 @@
 
 - **Font Awesome Check**: The script checks if Font Awesome is installed for better icon support.
 - **Laptop Detection**: Checks if the device is a laptop by looking for battery directories.
-- **WiFi Card Check**: Checks if a WiFi card is available using `nmcli`.
+- **WiFi Card Check**: Checks if a WiFi card is available.
 - **RAM Usage**: Displays the current RAM usage.
 - **Disk Usage**: Displays the disk usage of the root filesystem.
 - **Date and Time**: Displays the current date and time.
@@ -36,7 +36,7 @@
 
 2. **Make the Script Executable**:
     ```sh
-    chmod +x nirubar-dwm/nirubar-dwm-void
+    chmod +x nirubar-dwm-void/nirubar-dwm-void
     ```
 
 3. **Edit `dwm` Configuration**: Add the script to your `dwm` configuration to run it at startup.
