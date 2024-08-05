@@ -13,38 +13,23 @@ IDENTIFIER=$(check_font_awesome && echo "fontawesome" || echo "text")
 # Check if the device is a laptop
 IS_LAPTOP=$(ls /sys/class/power_supply | grep -q 'BAT' && echo true || echo false)
 
-# Function to detect the network manager in use
-detect_network_manager() {
-    if command -v nmcli >/dev/null 2>&1; then
+# Function to detect the running network manager
+detect_running_network_manager() {
+    if pgrep -x "NetworkManager" >/dev/null; then
         echo "nmcli"
-    elif command -v iw >/dev/null 2>&1; then
-        echo "iw"
-    elif command -v iwconfig >/dev/null 2>&1; then
-        echo "iwconfig"
-    elif command -v wpa_cli >/dev/null 2>&1; then
+    elif pgrep -x "wpa_supplicant" >/dev/null; then
         echo "wpa_cli"
-    else
-        echo "none"
-    fi
-}
-
-# Function to detect WiFi availability
-detect_wifi() {
-    if command -v nmcli >/dev/null 2>&1 && nmcli device status | grep -q wifi; then
-        echo "nmcli"
-    elif command -v iw >/dev/null 2>&1 && iw dev | grep -q Interface; then
-        echo "iw"
-    elif command -v iwconfig >/dev/null 2>&1 && iwconfig 2>&1 | grep -q "ESSID"; then
-        echo "iwconfig"
-    elif command -v wpa_cli >/dev/null 2>&1 && wpa_cli status | grep -q '^ssid='; then
-        echo "wpa_cli"
+    elif pgrep -x "iwd" >/dev/null; then
+        echo "iwctl"
+    elif pgrep -x "connmand" >/dev/null; then
+        echo "connmanctl"
     else
         echo "none"
     fi
 }
 
 # Check if WiFi card is available
-WIFI_MANAGER=$(detect_wifi)
+WIFI_MANAGER=$(detect_running_network_manager)
 HAS_WIFI=$( [ "$WIFI_MANAGER" != "none" ] && echo true || echo false )
 
 # Function to get RAM usage
@@ -97,7 +82,7 @@ get_battery_status() {
                     ICON="bat: $CHARGE% (charging)"
                 else
                     ICON="bat: $CHARGE%"
-                end fi
+                fi
                 BATTERY_STATUS="$BATTERY_STATUS$BAT_NAME: $ICON "
             fi
         else
@@ -107,21 +92,21 @@ get_battery_status() {
     echo "$BATTERY_STATUS"
 }
 
-# Function to get WiFi status using the detected network manager
+# Function to get WiFi status using the running network manager
 get_wifi_status() {
     if [ "$HAS_WIFI" = true ]; then
         case $WIFI_MANAGER in
             nmcli)
                 CONNAME=$(nmcli -t -f active,ssid dev wifi | grep '^yes' | cut -d: -f2)
                 ;;
-            iw)
-                CONNAME=$(iw dev wlan0 link | grep 'SSID' | awk '{print $2}')
-                ;;
-            iwconfig)
-                CONNAME=$(iwconfig 2>&1 | grep 'ESSID' | awk -F '"' '{print $2}')
-                ;;
             wpa_cli)
                 CONNAME=$(wpa_cli status | grep '^ssid=' | awk -F '=' '{print $2}')
+                ;;
+            iwctl)
+                CONNAME=$(iwctl station list | grep 'Connected network' | awk '{print $4}')
+                ;;
+            connmanctl)
+                CONNAME=$(connmanctl services | grep '^\*AO' | awk '{print $4}')
                 ;;
             none)
                 CONNAME=""
