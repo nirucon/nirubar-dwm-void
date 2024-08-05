@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Simple script to display system information for Void Linux in DWM bar with xsetroot by Nicklas Rudolfsson
+# Simple script to display system information for Void Linux in DWM bar with xsetroot
 
 # Function to check if Font Awesome is installed
 check_font_awesome() {
@@ -84,11 +84,11 @@ get_battery_status() {
             echo "Found $BAT_NAME: $CHARGE% $STATUS" >&2
             if [ "$IDENTIFIER" = "fontawesome" ]; then
                 ICON=$(case $CHARGE in
-                           [8-9][0-9]|100) echo " ";;
-                           [6-7][0-9]) echo " ";;
-                           [4-5][0-9]) echo " ";;
-                           [2-3][0-9]) echo " ";;
-                           *) echo " ";;
+                           [8-9][0-9]|100) echo "";;
+                           [6-7][0-9]) echo "";;
+                           [4-5][0-9]) echo "";;
+                           [2-3][0-9]) echo "";;
+                           *) echo "";;
                        esac)
                 [ "$STATUS" = "Charging" ] && ICON="$ICON "
                 BATTERY_STATUS="$BATTERY_STATUS$ICON $CHARGE% "
@@ -97,7 +97,7 @@ get_battery_status() {
                     ICON="bat: $CHARGE% (charging)"
                 else
                     ICON="bat: $CHARGE%"
-                fi
+                end fi
                 BATTERY_STATUS="$BATTERY_STATUS$BAT_NAME: $ICON "
             fi
         else
@@ -118,7 +118,7 @@ get_wifi_status() {
                 CONNAME=$(iw dev wlan0 link | grep 'SSID' | awk '{print $2}')
                 ;;
             iwconfig)
-                CONNAME=$(iwconfig wlan0 | grep 'ESSID' | awk -F '"' '{print $2}')
+                CONNAME=$(iwconfig 2>&1 | grep 'ESSID' | awk -F '"' '{print $2}')
                 ;;
             wpa_cli)
                 CONNAME=$(wpa_cli status | grep '^ssid=' | awk -F '=' '{print $2}')
